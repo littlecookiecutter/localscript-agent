@@ -11,39 +11,7 @@ venv/
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Generated / Build artifacts
-build/
-dist/
-*.egg
-*.egg-info/
-MANIFEST
+# Generated
+src/agent/generator.py
 
-# Testing
-.coverage
-coverage/
-htmlcov/
-.noserc
-.pytest_cache/
-
-# Environment specific
-.env
-.env.local
-*.env.*
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-
-# Temp files
-*.tmp
-*.temp
 ```
