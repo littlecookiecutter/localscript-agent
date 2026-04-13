@@ -1,1 +1,49 @@
-(src/agent/lua_generator.py)
+```
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Generated / Build artifacts
+build/
+dist/
+*.egg
+*.egg-info/
+MANIFEST
+
+# Testing
+.coverage
+coverage/
+htmlcov/
+.noserc
+.pytest_cache/
+
+# Environment specific
+.env
+.env.local
+*.env.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temp files
+*.tmp
+*.temp
+```
