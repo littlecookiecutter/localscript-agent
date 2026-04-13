@@ -248,6 +248,65 @@ Do not include explanations outside of this format."""
         }
 
 
+def extract_lua_code(text: str) -> Optional[str]:
+    """
+    Extract Lua code from LLM response text.
+    
+    Searches for code blocks in the following formats:
+    1. {"result":"lua{...}lua"} - preferred format
+    2. ```lua ... ``` - markdown code blocks
+    
+    Args:
+        text: Response text from the model (may contain explanations + code)
+        
+    Returns:
+        Clean Lua code string or None if no code found
+        
+    Rules:
+    1. Search for blocks in format {"result":"lua{...}lua"} or code between ```lua and ```
+    2. If multiple blocks found, return the first one
+    3. Remove markdown formatting if present
+    4. Return None if code is not found
+    """
+    if not text:
+        return None
+    
+    # Pattern 1: Match {"result":"lua{...}lua"} format
+    # This is the preferred format from our system prompt
+    json_pattern = r'\{\s*"result"\s*:\s*"lua\{(.+?)\}lua"'
+    
+    match = re.search(json_pattern, text, re.DOTALL)
+    if match:
+        code = match.group(1).strip()
+        # Unescape JSON-escaped characters
+        code = code.replace('\\"', '"').replace('\\n', '\n')
+        code = code.replace('\\\\', '\\')
+        # Remove any remaining markdown code fences
+        code = re.sub(r'```lua\s*', '', code)
+        code = re.sub(r'```\s*', '', code)
+        return code.strip() if code else None
+    
+    # Pattern 2: Match ```lua ... ``` markdown blocks
+    markdown_pattern = r'```lua\s*(.+?)\s*```'
+    
+    match = re.search(markdown_pattern, text, re.DOTALL | re.IGNORECASE)
+    if match:
+        code = match.group(1).strip()
+        return code if code else None
+    
+    # Pattern 3: Match generic ``` ... ``` blocks (without lua specifier)
+    generic_pattern = r'```\s*(.+?)\s*```'
+    
+    match = re.search(generic_pattern, text, re.DOTALL)
+    if match:
+        code = match.group(1).strip()
+        # Check if it looks like Lua code
+        if code:
+            return code
+    
+    return None
+
+
 def generate_lua(
     prompt: str,
     context: Optional[Dict[str, Any]] = None,
@@ -279,3 +338,134 @@ if __name__ == "__main__":
         context={"function_name": "addNumbers"}
     )
     print(json.dumps(result, indent=2))
+
+
+# =============================================================================
+# Tests for extract_lua_code function
+# =============================================================================
+
+def _run_tests():
+    """Run unit tests for extract_lua_code function."""
+    print("Running tests for extract_lua_code...\n")
+    
+    test_cases = [
+        # Test 1: JSON format with lua{...}lua
+        {
+            "name": "JSON format with lua{...}lua",
+            "input": 'Here is the code: {"result":"lua{local x = 5\nreturn x}lua"}',
+            "expected": "local x = 5\nreturn x"
+        },
+        # Test 2: Markdown ```lua ... ``` block
+        {
+            "name": "Markdown lua code block",
+            "input": "Some text before\n```lua\nlocal function add(a, b)\n    return a + b\nend\n```\nSome text after",
+            "expected": "local function add(a, b)\n    return a + b\nend"
+        },
+        # Test 3: Generic ``` ... ``` block
+        {
+            "name": "Generic code block",
+            "input": "```\nprint('Hello, World!')\n```",
+            "expected": "print('Hello, World!')"
+        },
+        # Test 4: Multiple blocks - should return first
+        {
+            "name": "Multiple blocks (first one)",
+            "input": '{"result":"lua{first_code()}lua"} and {"result":"lua{second_code()}lua"}',
+            "expected": "first_code()"
+        },
+        # Test 5: With escaped characters
+        {
+            "name": "JSON with escaped characters",
+            "input": '{"result":"lua{local s = \\"hello\\"\\nprint(s)}lua"}',
+            "expected": 'local s = "hello"\nprint(s)'
+        },
+        # Test 6: Empty input
+        {
+            "name": "Empty input",
+            "input": "",
+            "expected": None
+        },
+        # Test 7: No code found
+        {
+            "name": "No code found",
+            "input": "This is just plain text without any code",
+            "expected": None
+        },
+        # Test 8: None input
+        {
+            "name": "None input",
+            "input": None,
+            "expected": None
+        },
+        # Test 9: Mixed content with explanations
+        {
+            "name": "Mixed content with explanations",
+            "input": """Sure! Here's the Lua code you requested:
+
+{"result":"lua{wf.vars.sum = wf.vars.a + wf.vars.b
+return wf.vars.sum}lua"}
+
+Let me know if you need anything else!""",
+            "expected": "wf.vars.sum = wf.vars.a + wf.vars.b\nreturn wf.vars.sum"
+        },
+        # Test 10: Markdown with extra whitespace
+        {
+            "name": "Markdown with extra whitespace",
+            "input": "```lua   \n  local x = 10  \n```",
+            "expected": "local x = 10"
+        },
+        # Test 11: Case insensitive lua marker
+        {
+            "name": "Case insensitive LUA marker",
+            "input": "```LUA\nfunction test() end\n```",
+            "expected": "function test() end"
+        },
+        # Test 12: JSON format with spaces
+        {
+            "name": "JSON format with spaces",
+            "input": '{ "result" : "lua{return true}lua" }',
+            "expected": "return true"
+        },
+    ]
+    
+    passed = 0
+    failed = 0
+    
+    for i, test in enumerate(test_cases, 1):
+        result = extract_lua_code(test["input"])
+        expected = test["expected"]
+        
+        if result == expected:
+            print(f"✓ Test {i}: {test['name']} - PASSED")
+            passed += 1
+        else:
+            print(f"✗ Test {i}: {test['name']} - FAILED")
+            print(f"  Input: {repr(test['input'][:50])}...")
+            print(f"  Expected: {repr(expected)}")
+            print(f"  Got: {repr(result)}")
+            failed += 1
+    
+    print(f"\n{'='*60}")
+    print(f"Tests completed: {passed} passed, {failed} failed out of {len(test_cases)}")
+    print(f"{'='*60}\n")
+    
+    return failed == 0
+
+
+if __name__ == "__main__":
+    import sys
+    
+    # Run tests first
+    tests_passed = _run_tests()
+    
+    # Then run example usage
+    print("\nExample usage:")
+    print("-" * 40)
+    result = generate_lua(
+        prompt="Create a function that calculates the sum of two numbers",
+        context={"function_name": "addNumbers"}
+    )
+    print(json.dumps(result, indent=2))
+    
+    # Exit with appropriate code
+    sys.exit(0 if tests_passed else 1)
