@@ -1,0 +1,78 @@
+openapi: 3.0.3
+info:
+  title: LocalScript API
+  description: API для локальной генерации Lua-кода через AI-агента
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Локальный сервер приложения
+paths:
+  /generate:
+    post:
+      summary: Сгенерировать код по тексту задачи
+      operationId: generate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt:
+                  type: string
+                  description: Текст задачи на естественном языке
+                  example: "Функция factorial(n) для n >= 0"
+      responses:
+        "200":
+          description: Успешная генерация
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code]
+                properties:
+                  code:
+                    type: string
+                    description: Сгенерированный Lua-код в формате, совместимом с LowCode
+                    example: |
+                      function factorial(n)
+                          if n <= 1 then return 1 end
+                          return n * factorial(n - 1)
+                      end
+        "400":
+          description: Ошибка валидации входных данных
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: "Prompt is required"
+        "500":
+          description: Ошибка генерации или внутренней обработки
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "-- Error during generation: Ollama timeout"
+components:
+  schemas:
+    GenerateRequest:
+      type: object
+      required: [prompt]
+      properties:
+        prompt:
+          type: string
+          description: Задача на естественном языке
+    GenerateResponse:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          description: Lua-код для выполнения в LowCode-среде
